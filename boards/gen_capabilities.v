@@ -33,9 +33,15 @@ wire dmx;
 wire ir;
 wire usb;
 wire memtest;
+wire aceusb;
+wire ps2keyboard;
+wire ps2mouse;
 
 assign capabilities = {
-	20'd0,
+	17'd0,
+	ps2mouse,
+	ps2keyboard,
+	aceusb,
 	memtest,
 	usb,
 	ir,
@@ -120,6 +126,24 @@ assign usb = 1'b0;
 assign memtest = 1'b1;
 `else
 assign memtest = 1'b0;
+`endif
+
+`ifdef ENABLE_ACEUSB
+assign aceusb = 1'b1;
+`else
+assign aceusb = 1'b0;
+`endif
+
+`ifdef ENABLE_PS2_KEYBOARD
+assign ps2keyboard = 1'b1;
+`else
+assign ps2keyboard = 1'b0;
+`endif
+
+`ifdef ENABLE_PS2_MOUSE
+assign ps2keymouse = 1'b1;
+`else
+assign ps2keymouse = 1'b0;
 `endif
 
 endmodule

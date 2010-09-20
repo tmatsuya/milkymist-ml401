@@ -30,5 +30,8 @@
 #define CAP_IR			(0x00000200)
 #define CAP_USB			(0x00000400)
 #define CAP_MEMTEST		(0x00000800)
+#define CAP_ACEUSB		(0x00001000)
+#define CAP_PS2KEYBOARD		(0x00002000)
+#define CAP_PS2MOUSE		(0x00004000)
 
 #endif /* __HW_CAPABILITIES */

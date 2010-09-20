@@ -283,6 +283,52 @@ NET "vga_psave_n" LOC = M25 | IOSTANDARD = LVCMOS33 | SLEW = FAST | DRIVE = 8;
 NET "vga_blank_n" LOC = M24 | IOSTANDARD = LVCMOS33 | SLEW = FAST | DRIVE = 8;
 NET "vga_sync_n" LOC = L23 | IOSTANDARD = LVCMOS33 | SLEW = FAST | DRIVE = 8;
 
+# ==== SystemACE/USB ====
+
+# Shared signals
+NET "aceusb_a(0)" LOC = U22;
+NET "aceusb_a(1)" LOC = Y10;
+NET "aceusb_a(2)" LOC = AA10;
+NET "aceusb_a(3)" LOC = AC7;
+NET "aceusb_a(4)" LOC = Y7;
+NET "aceusb_a(5)" LOC = AA9;
+NET "aceusb_a(6)" LOC = Y9;
+NET "aceusb_a(*)" IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 4;
+NET "aceusb_d(0)" LOC = AB7;
+NET "aceusb_d(1)" LOC = AC9;
+NET "aceusb_d(2)" LOC = AB9;
+NET "aceusb_d(3)" LOC = AE6;
+NET "aceusb_d(4)" LOC = AD6;
+NET "aceusb_d(5)" LOC = AF9;
+NET "aceusb_d(6)" LOC = AE9;
+NET "aceusb_d(7)" LOC = AD8;
+NET "aceusb_d(8)" LOC = AC8;
+NET "aceusb_d(9)" LOC = AF4;
+NET "aceusb_d(10)" LOC = AE4;
+NET "aceusb_d(11)" LOC = AD3;
+NET "aceusb_d(12)" LOC = AC3;
+NET "aceusb_d(13)" LOC = AF6;
+NET "aceusb_d(14)" LOC = AF5;
+NET "aceusb_d(15)" LOC = AA7;
+NET "aceusb_d(*)" IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 4 | PULLDOWN;
+NET "aceusb_oe_n" LOC = AA8 | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 4;
+NET "aceusb_we_n" LOC = Y8 | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 4;
+
+# SystemACE signals
+NET "ace_clkin" LOC = AF11;
+NET "ace_clkin" IOSTANDARD = LVCMOS33;
+NET "ace_clkin" TNM_NET = "ace_clkin";
+# leave 1ns margin (as in the ML401 UCF from Xilinx)
+TIMESPEC "TSace" = PERIOD "ace_clkin" 29 ns HIGH 50%;
+
+NET "ace_mpce_n" LOC = AD5 | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 4;
+NET "ace_mpirq" LOC = AD4 | IOSTANDARD = LVCMOS33 | PULLDOWN;
+
+# USB signals
+NET "usb_cs_n" LOC = AF10 | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 4;
+NET "usb_hpi_reset_n" LOC = A7 | IOSTANDARD = LVCMOS25;
+NET "usb_hpi_int" LOC = V5 | IOSTANDARD = LVCMOS33 | PULLDOWN;
+
 # ==== AC97 ====
 NET "ac97_clk" LOC = AE10 | IOSTANDARD = LVCMOS33;
 NET "ac97_sin" LOC = AD16 | IOSTANDARD = LVCMOS33; # codec to FPGA
@@ -292,6 +338,14 @@ NET "ac97_sync" LOC = D9 | IOSTANDARD = LVCMOS25;
 
 NET "ac97_clk" TNM_NET = "clkac97";
 TIMESPEC "TSclkac97" = PERIOD "clkac97" 80 HIGH 50%;
+
+# ==== PS/2 ====
+# "keyboard" connector
+NET "ps2_clk1"  LOC = D2 | IOSTANDARD = LVCMOS25;
+NET "ps2_data1" LOC = G9 | IOSTANDARD = LVCMOS25;
+# "mouse" connector
+NET "ps2_clk2"  LOC = B14 | IOSTANDARD = LVCMOS25;
+NET "ps2_data2" LOC = C14 | IOSTANDARD = LVCMOS25;
 
 # ==== Ethernet ====
 NET "phy_col" LOC = E3;

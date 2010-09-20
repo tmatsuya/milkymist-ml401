@@ -49,7 +49,7 @@ wire [8:0] fifo_in = {fifo_eof, fifo_hi, fifo_lo};
 reg fifo_we;
 wire full;
 
-minimac_asfifo #(
+minimac_asfifo_xilinx #(
 	.DATA_WIDTH(9),
 	.ADDRESS_WIDTH(7)
 ) fifo (

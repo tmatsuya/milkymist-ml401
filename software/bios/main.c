@@ -425,6 +425,9 @@ static void display_capabilities()
 	display_capability("IR        ", cap & CAP_IR);
 	display_capability("USB       ", cap & CAP_USB);
 	display_capability("Memtester ", cap & CAP_MEMTEST);
+	display_capability("Ace USB   ", cap & CAP_ACEUSB);
+	display_capability("PS2 Key   ", cap & CAP_PS2KEYBOARD);
+	display_capability("PS2 Mouse ", cap & CAP_PS2MOUSE);
 }
 
 static const char banner[] =
@@ -436,10 +439,14 @@ static const char banner[] =
 
 static void boot_sequence()
 {
+	unsigned int cap;
+
+	cap = CSR_CAPABILITIES;
 	splash_display();
 	if(test_user_abort()) {
 		serialboot(1);
-		netboot();
+		if (cap & CAP_ETHERNET)
+			netboot();
 		if(brd_desc->memory_card != MEMCARD_NONE) {
 			if(CSR_GPIO_IN & GPIO_DIP1)
 				cardboot(1);

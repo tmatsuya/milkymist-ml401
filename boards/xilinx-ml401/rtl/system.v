@@ -74,12 +74,30 @@ module system(
 	output [7:0] vga_g,
 	output [7:0] vga_b,
 	output vga_clkout,
+
+	// SystemACE/USB
+	output [6:0] aceusb_a,
+	inout [15:0] aceusb_d,
+	output aceusb_oe_n,
+	output aceusb_we_n,
+	input ace_clkin,
+	output ace_mpce_n,
+	input ace_mpirq,
+	output usb_cs_n,
+	output usb_hpi_reset_n,
+	input usb_hpi_int,
 	
 	// AC97
 	input ac97_clk,
 	input ac97_sin,
 	output ac97_sout,
 	output ac97_sync,
+
+	// PS2
+	inout ps2_clk1,
+	inout ps2_data1,
+	inout ps2_clk2,
+	inout ps2_data2,
 
 	// Ethernet
 	output phy_rst_n,
@@ -238,7 +256,8 @@ wire		cpuibus_ack,
 wire [31:0]	norflash_adr,
 		usb_adr,
 		brg_adr,
-		csrbrg_adr;
+		csrbrg_adr,
+		aceusb_adr;
 
 wire [2:0]	brg_cti;
 
@@ -249,7 +268,9 @@ wire [31:0]	norflash_dat_r,
 		brg_dat_r,
 		brg_dat_w,
 		csrbrg_dat_r,
-		csrbrg_dat_w;
+		csrbrg_dat_w,
+		aceusb_dat_r,
+		aceusb_dat_w;
 
 wire [3:0]	norflash_sel,
 		usb_sel,
@@ -258,33 +279,38 @@ wire [3:0]	norflash_sel,
 wire		norflash_we,
 		usb_we,
 		brg_we,
-		csrbrg_we;
+		csrbrg_we,
+		aceusb_we;
 
 wire		norflash_cyc,
 		usb_cyc,
 		brg_cyc,
-		csrbrg_cyc;
+		csrbrg_cyc,
+		aceusb_cyc;
 
 wire		norflash_stb,
 		usb_stb,
 		brg_stb,
-		csrbrg_stb;
+		csrbrg_stb,
+		aceusb_stb;
 
 wire		norflash_ack,
 		usb_ack,
 		brg_ack,
-		csrbrg_ack;
+		csrbrg_ack,
+		aceusb_ack;
 
 //---------------------------------------------------------------------------
 // Wishbone switch
 //---------------------------------------------------------------------------
 conbus #(
 	/* MSB (Bit 31) is ignored by conbus */
-	.s_addr_w(2),
-	.s0_addr(2'b00),	// norflash     0x00000000 (shadow @0x80000000)
-	.s1_addr(2'b01),	// USB          0x20000000 (shadow @0xa0000000)
-	.s2_addr(2'b10),	// FML bridge   0x40000000 (shadow @0xc0000000)
-	.s3_addr(2'b11)		// CSR bridge   0x60000000 (shadow @0xe0000000)
+	.s_addr_w(3),
+	.s0_addr(3'b000),	// norflash     0x00000000 (shadow @0x80000000)
+	.s1_addr(3'b010),	// USB          0x20000000 (shadow @0xa0000000)
+	.s2_addr(3'b100),	// FML bridge   0x40000000 (shadow @0xc0000000)
+	.s3_addr(3'b110),	// CSR bridge   0x60000000 (shadow @0xe0000000)
+	.s4_addr(3'b111)	// aceusb       0x70000000 (shadow @0xf0000000)
 ) conbus (
 	.sys_clk(sys_clk),
 	.sys_rst(sys_rst),
@@ -396,7 +422,15 @@ conbus #(
 	.s3_we_o(csrbrg_we),
 	.s3_cyc_o(csrbrg_cyc),
 	.s3_stb_o(csrbrg_stb),
-	.s3_ack_i(csrbrg_ack)
+	.s3_ack_i(csrbrg_ack),
+	// Slave 4
+	.s4_dat_i(aceusb_dat_r),
+	.s4_dat_o(aceusb_dat_w),
+	.s4_adr_o(aceusb_adr),
+	.s4_we_o(aceusb_we),
+	.s4_cyc_o(aceusb_cyc),
+	.s4_stb_o(aceusb_stb),
+	.s4_ack_i(aceusb_ack)
 );
 
 //------------------------------------------------------------------
@@ -414,7 +448,9 @@ wire [31:0]	csr_dr_uart,
 		csr_dr_tmu,
 		csr_dr_ethernet,
 		csr_dr_fmlmeter,
-		csr_dr_usb;
+		csr_dr_usb,
+		csr_dr_ps2,
+		csr_dr_mouse;
 
 //------------------------------------------------------------------
 // FML master wires
@@ -554,6 +590,8 @@ csrbrg csrbrg(
 		|csr_dr_ethernet
 		|csr_dr_fmlmeter
 		|csr_dr_usb
+		|csr_dr_ps2
+		|csr_dr_mouse
 	)
 );
 
@@ -612,13 +650,15 @@ wire tmu_irq;
 wire ethernetrx_irq;
 wire ethernettx_irq;
 wire usb_irq;
+wire keyboard_irq;
+wire mouse_irq;
 
 wire [31:0] cpu_interrupt;
 assign cpu_interrupt = {14'd0,
 	usb_irq,
 	1'b0,
-	1'b0,
-	1'b0,
+	mouse_irq,
+	keyboard_irq,
 	1'b0,
 	ethernettx_irq,
 	ethernetrx_irq,
@@ -802,6 +842,45 @@ assign lcd_e = gpio_outputs[7];
 assign lcd_rs = gpio_outputs[8];
 assign lcd_rw = gpio_outputs[9];
 assign lcd_d = gpio_outputs[13:10];
+
+//---------------------------------------------------------------------------
+// SystemACE/USB interface
+//---------------------------------------------------------------------------
+`ifdef ENABLE_ACEUSB
+aceusb aceusb(
+	.sys_clk(sys_clk),
+	.sys_rst(sys_rst),
+
+	.wb_cyc_i(aceusb_cyc),
+	.wb_stb_i(aceusb_stb),
+	.wb_ack_o(aceusb_ack),
+	.wb_adr_i(aceusb_adr),
+	.wb_dat_i(aceusb_dat_w),
+	.wb_dat_o(aceusb_dat_r),
+	.wb_we_i(aceusb_we),
+
+	.aceusb_a(aceusb_a),
+	.aceusb_d(aceusb_d),
+	.aceusb_oe_n(aceusb_oe_n),
+	.aceusb_we_n(aceusb_we_n),
+	.ace_clkin(ace_clkin),
+	.ace_mpce_n(ace_mpce_n),
+	.ace_mpirq(ace_mpirq),
+	.usb_cs_n(usb_cs_n),
+	.usb_hpi_reset_n(usb_hpi_reset_n),
+	.usb_hpi_int(usb_hpi_int)
+);
+`else
+assign aceusb_a = 7'd0;
+assign aceusb_d = 16'bz;
+assign aceusb_oe_n = 1'b1;
+assign aceusb_we_n = 1'b1;
+assign ace_mpce_n = 1'b0;
+assign usb_cs_n = 1'b1;
+assign usb_hpi_reset_n = 1'b1;
+assign aceusb_ack = aceusb_cyc & aceusb_stb;
+assign aceusb_dat_r = 32'habadface;
+`endif
 
 //---------------------------------------------------------------------------
 // DDR SDRAM
@@ -1028,6 +1107,56 @@ assign fml_tmuw_adr = {`SDRAM_DEPTH{1'bx}};
 assign fml_tmuw_stb = 1'b0;
 assign fml_tmuw_sel = 8'bx;
 assign fml_tmuw_dw = 64'bx;
+`endif
+
+//---------------------------------------------------------------------------
+// PS2 Interface
+//---------------------------------------------------------------------------
+`ifdef ENABLE_PS2_KEYBOARD
+ps2 #(
+	.csr_addr(4'hc),
+	.clk_freq(`CLOCK_FREQUENCY)
+) ps2_keyboard (
+	.sys_clk(sys_clk),
+	.sys_rst(sys_rst),
+
+	.csr_a(csr_a),
+	.csr_we(csr_we),
+	.csr_di(csr_dw),
+	.csr_do(csr_dr_ps2),
+
+	.ps2_clk(ps2_clk1),
+	.ps2_data(ps2_data1),
+
+	.irq(keyboard_irq)
+
+);
+`else
+assign csr_dr_ps2 = 32'd0;
+assign keyboard_irq = 1'd0;
+`endif
+`ifdef ENABLE_PS2_MOUSE
+ps2 #(
+	.csr_addr(4'hd),
+	.clk_freq(`CLOCK_FREQUENCY)
+) ps2_mouse (
+	.sys_clk(sys_clk),
+	.sys_rst(sys_rst),
+
+	.csr_a(csr_a),
+	.csr_we(csr_we),
+	.csr_di(csr_dw),
+	.csr_do(csr_dr_mouse),
+
+	.ps2_clk(ps2_clk2),
+	.ps2_data(ps2_data2),
+
+	.irq(mouse_irq)
+
+);
+`else
+assign csr_dr_mouse = 32'd0;
+assign mouse_irq = 1'd0;
 `endif
 
 //---------------------------------------------------------------------------
